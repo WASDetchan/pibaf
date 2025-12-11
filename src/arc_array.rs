@@ -22,7 +22,6 @@ impl<const N: usize, T> UnsafeArcArray<N, T> {
                 .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Relaxed)
                 .is_ok()
             {
-                println!("new");
                 // Safety: The item did not have references exept this one
                 unsafe {
                     (&mut *self.items[idx].get()).write(init());
@@ -44,7 +43,6 @@ impl<const N: usize, T> UnsafeArcArray<N, T> {
     /// # Safety
     /// dec_count should be called no more that once for each corresponding inc_count
     pub unsafe fn dec_count(&self, index: usize) {
-        println!("dec_count");
         assert!(index < N);
 
         let prev_count =
@@ -57,12 +55,10 @@ impl<const N: usize, T> UnsafeArcArray<N, T> {
                 (&mut *self.items.get_unchecked(index).get()).assume_init_drop();
             };
         }
-        println!("dec_count finish");
     }
 
     /// Increments item's ref count
     pub fn inc_count(&self, index: usize) {
-        println!("inc_count");
         self.ref_counts[index].fetch_add(1, Ordering::Relaxed);
     }
 

@@ -56,22 +56,26 @@ pub fn enumerate() -> Vec<AvailableValidationLayer> {
         entry::ENTRY.enumerate_instance_layer_properties()
     });
 
-    layers
+    let layers = layers
         .into_iter()
         .flat_map(|prop| {
-            let name = prop.layer_name_as_c_str().expect("Got invalid layer name from enumeration");
+            let name = prop
+                .layer_name_as_c_str()
+                .expect("Got invalid layer name from enumeration");
             let layer = ValidationLayer::identify_name(name)?;
             Some(AvailableValidationLayer {
                 layer,
                 properties: prop,
             })
         })
-        .collect()
+        .collect();
+    log::trace!("Enumerated validation layers, avalilable layers: {layers:#?}");
+    layers
 }
-
 
 /// List of some of the available validation layers. Guarantees avalilability. Used to safely
 /// enable those layers withoutadditional checks
+#[derive(Debug)]
 pub struct AvailableValidationLayers {
     layers: Vec<ValidationLayer>,
 }
@@ -99,9 +103,9 @@ impl AvailableValidationLayers {
         required: &[ValidationLayer],
     ) -> Option<Self> {
         let mut has_requirements = true;
-        required.iter().for_each(|req| {
-            has_requirements &= available.iter().any(|avail| avail.layer == *req)
-        });
+        required
+            .iter()
+            .for_each(|req| has_requirements &= available.iter().any(|avail| avail.layer == *req));
 
         has_requirements.then(|| Self {
             layers: required.to_vec(),

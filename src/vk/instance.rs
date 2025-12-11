@@ -21,12 +21,11 @@ pub struct RawInstance(ash::Instance);
 
 impl Drop for RawInstance {
     fn drop(&mut self) {
-        log::info!("Destroying instance: {}", self.0.handle().as_raw());
-        println!("Destroying instance: {}", self.0.handle().as_raw());
+        let handle = self.0.handle().as_raw();
         unsafe {
             self.0.destroy_instance(None);
         }
-        println!("Destroyed instance: {}", self.0.handle().as_raw());
+        log::info!("Destroyed instance: {handle}");
     }
 }
 
@@ -86,12 +85,15 @@ impl Instance {
     /// # Panics
     /// Panics if vulkan is not supported
     pub fn create_vk_instance(info: InstanceCreateInfo) -> Self {
+        log::trace!("Creating Instance: {info:#?}" );
         let create_info = info.create_raw();
 
         // Safety: InstanceCreateInfo guarantees that it gives valid create_info
         let instance = expect_vk_success("Failed to create vk::Instance", unsafe {
             entry::ENTRY.create_instance(&create_info.vk_instance_create_info(), None)
         });
+
+        log::info!("Cretated instance, handle: {}", instance.handle().as_raw());
 
         // Safety: The only reference to this instance is being put into the array
         unsafe { Self::from_raw(instance) }
@@ -126,6 +128,7 @@ impl RawInstanceCreateInfo<'_> {
 }
 
 /// Owned data for vk::InstanceCreateInfo
+#[derive(Debug)]
 pub struct InstanceCreateInfo {
     enabled_validation_layers: Vec<&'static CStr>,
     enabled_extensions: Vec<&'static CStr>,
@@ -219,8 +222,8 @@ impl InstanceCreateInfo {
             .api_version(self.api_version);
 
         RawInstanceCreateInfo {
-            enabled_validation_layers: extension_name_ptrs,
-            enabled_extension: validation_layer_name_ptrs,
+            enabled_validation_layers: validation_layer_name_ptrs,
+            enabled_extension: extension_name_ptrs,
             application_info,
             owned_info: self,
         }
@@ -229,6 +232,8 @@ impl InstanceCreateInfo {
 
 #[cfg(test)]
 mod test {
+    use crate::vk::validation_layer::{self, ValidationLayer};
+
     use super::*;
     #[test]
     fn empty_validation_and_extension() {
@@ -237,6 +242,25 @@ mod test {
             .engine_version(1)
             .application_name(b"test")
             .api_version(vk::API_VERSION_1_0)
+            .build()
+            .unwrap();
+        let _ = Instance::create_vk_instance(info);
+    }
+
+    #[test]
+    fn khronos_validation() {
+        const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
+        let available_layers = validation_layer::enumerate();
+
+        let layers = AvailableValidationLayers::from_available_and_required(
+            &available_layers,
+            &REQUIRED_LAYERS,
+        )
+        .expect("Failed to find KhronosValidation layer");
+
+        let info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .validation_layers(layers)
             .build()
             .unwrap();
         let _ = Instance::create_vk_instance(info);

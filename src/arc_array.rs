@@ -27,8 +27,6 @@ impl<const N: usize, T> UnsafeArcArray<N, T> {
                 unsafe {
                     (&mut *self.items[idx].get()).write(init());
                 }
-                rc.compare_exchange(1, 2, Ordering::Release, Ordering::Relaxed)
-                    .unwrap();
                 return Some(idx);
             }
         }
@@ -51,8 +49,8 @@ impl<const N: usize, T> UnsafeArcArray<N, T> {
 
         let prev_count =
             unsafe { self.ref_counts.get_unchecked(index) }.fetch_sub(1, Ordering::Relaxed);
-        debug_assert!(prev_count > 1);
-        if prev_count == 2 {
+        debug_assert!(prev_count > 0);
+        if prev_count == 1 {
             // Safety: if no more references are left, the item should be dropped.
             fence(Ordering::Acquire);
             unsafe {
@@ -84,19 +82,42 @@ impl<const N: usize, T> Default for UnsafeArcArray<N, T> {
 
 #[cfg(test)]
 mod test {
-    struct DropPrint(i64);
-    impl Drop for DropPrint {
+    struct DropSet {
+        v: i64,
+        cell: Rc<OnceCell<i64>>,
+    }
+    impl Drop for DropSet {
         fn drop(&mut self) {
-            eprintln!("i'm dropped! val: {}", self.0);
+            self.cell.set(self.v).unwrap()
         }
     }
+
+    impl DropSet {
+        fn new(v: i64) -> (Self, Rc<OnceCell<i64>>) {
+            let cell = Rc::new(OnceCell::new());
+            (
+                Self {
+                    v,
+                    cell: cell.clone(),
+                },
+                cell,
+            )
+        }
+    }
+    use std::{cell::OnceCell, rc::Rc};
+
     use super::*;
     #[test]
     fn basic() {
-        let arr = UnsafeArcArray::<11, DropPrint>::new();
-        let idx = arr.acquire_and_init(|| DropPrint(11)).unwrap();
+        let arr = UnsafeArcArray::<11, DropSet>::new();
+        let (ds, cell) = DropSet::new(11);
+        let idx = arr.acquire_and_init(|| ds).unwrap();
+        assert!(cell.get().is_none());
         unsafe {
             arr.dec_count(idx);
         }
+        assert!(cell.get().is_some_and(|v| *v == 11));
     }
+
+    // TODO: test better: multiple items, parallel access
 }

@@ -1,7 +1,6 @@
 use ash::vk;
 use pibaf::vk::{
-    instance::{Instance, InstanceCreateInfo},
-    validation_layer::{self, *},
+    extension, instance::{Instance, InstanceCreateInfo}, validation_layer::{self, *}
 };
 
 fn main() {
@@ -9,14 +8,16 @@ fn main() {
 
     const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
     let available_layers = validation_layer::enumerate();
+    let available_extension = extension::enumerate();
 
-    dbg!(&available_layers);
+    dbg!(&available_layers, available_layers.len());
+    dbg!(&available_extension, available_extension.len());
 
     let layers =
         AvailableValidationLayers::from_available_and_required(&available_layers, &REQUIRED_LAYERS)
             .expect("Failed to find KhronosValidation layer");
 
-    dbg!(&layers);
+    // dbg!(&layers);
 
     let info = InstanceCreateInfo::builder()
         .api_version(vk::API_VERSION_1_0)

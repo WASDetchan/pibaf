@@ -6,14 +6,15 @@ use strum::{EnumCount, IntoEnumIterator};
 use super::{entry, error::expect_vk_success};
 
 const VALIDATION_LAYER_NAMES: [&CStr; ValidationLayer::COUNT] =
-    [c"VK_LAYER_KHRONOS_validation", c"UNKNOW_LAYER"];
+    [c"VK_LAYER_KHRONOS_validation", c"__UNKNOW_LAYER", c"__UNREACHABLE_LAYER"];
 
-/// Enumeration of all supported validation layers, plus UnknownLayer
+/// Enumeration of all supported validation layers, plus UnknownLayer and UnreachableLayer
 #[derive(Clone, Copy, strum::EnumCount, strum::EnumIter, PartialEq, Eq, Debug)]
 #[repr(usize)]
 pub enum ValidationLayer {
     KhronosValidation,
     UnknownLayer,
+    UnreachableLayer,
 }
 
 impl ValidationLayer {
@@ -24,9 +25,9 @@ impl ValidationLayer {
         VALIDATION_LAYER_NAMES[*self as usize]
     }
 
-    /// Return the first enum variant with name mathing the given string. Returns None if the name doesn't match any variant
-    pub fn identify_name(name: &CStr) -> Option<Self> {
-        Self::iter().find(|layer| layer.name() == name)
+    /// Return the first enum variant with name mathing the given string. Returns ValidationLayer::UnknownLayer if the name doesn't match any variant
+    pub fn identify_name(name: &CStr) -> Self {
+        Self::iter().find(|layer| layer.name() == name).unwrap_or(ValidationLayer::UnknownLayer)
     }
 }
 
@@ -62,7 +63,7 @@ pub fn enumerate() -> Vec<AvailableValidationLayer> {
             let name = prop
                 .layer_name_as_c_str()
                 .expect("Got invalid layer name from enumeration");
-            let layer = ValidationLayer::identify_name(name)?;
+            let layer = ValidationLayer::identify_name(name);
             Some(AvailableValidationLayer {
                 layer,
                 properties: prop,
@@ -74,7 +75,7 @@ pub fn enumerate() -> Vec<AvailableValidationLayer> {
 }
 
 /// List of some of the available validation layers. Guarantees avalilability. Used to safely
-/// enable those layers withoutadditional checks
+/// enable those layers without additional checks
 #[derive(Debug)]
 pub struct AvailableValidationLayers {
     layers: Vec<ValidationLayer>,
@@ -125,13 +126,13 @@ mod test {
     #[test]
     fn identify() {
         let layer = ValidationLayer::identify_name(c"VK_LAYER_KHRONOS_validation");
-        assert_eq!(layer, Some(ValidationLayer::KhronosValidation));
+        assert_eq!(layer, ValidationLayer::KhronosValidation);
     }
 
     #[test]
     fn identify_not_found() {
         let layer = ValidationLayer::identify_name(c"garbage");
-        assert_eq!(layer, None);
+        assert_eq!(layer, ValidationLayer::UnknownLayer);
     }
 
     #[test]
@@ -148,7 +149,7 @@ mod test {
     #[test]
     fn does_not_have_unknown() {
         let available = enumerate();
-        let required = [ValidationLayer::UnknownLayer];
+        let required = [ValidationLayer::UnreachableLayer];
 
         let res = AvailableValidationLayers::from_available_and_required(&available, &required);
 

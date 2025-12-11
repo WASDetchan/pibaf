@@ -1,6 +1,6 @@
 use ash::vk;
 use pibaf::vk::{
-    extension, instance::{Instance, InstanceCreateInfo}, validation_layer::{self, *}
+    extension::{self, AvailableExtensions, Extension}, instance::{Instance, InstanceCreateInfo}, validation_layer::{self, *}
 };
 
 fn main() {
@@ -17,11 +17,13 @@ fn main() {
         AvailableValidationLayers::from_available_and_required(&available_layers, &REQUIRED_LAYERS)
             .expect("Failed to find KhronosValidation layer");
 
+    let extensions = AvailableExtensions::from_available_and_required(&available_extension, &[Extension::KhrSurface]).expect("Failed to find KhrSurface extension");
     // dbg!(&layers);
 
     let info = InstanceCreateInfo::builder()
         .api_version(vk::API_VERSION_1_0)
         .validation_layers(layers)
+        .extensions(extensions)
         .build()
         .unwrap();
     let _ = Instance::create_vk_instance(info);

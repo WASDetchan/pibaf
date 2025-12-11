@@ -1,6 +1,6 @@
 [package]
 name = "pibaf"
-version = "0.1.2-a"
+version = "0.1.2-b"
 edition = "2024"
 
 [dependencies]

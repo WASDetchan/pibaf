@@ -232,7 +232,6 @@ impl InstanceCreateInfo {
 
 #[cfg(test)]
 mod test {
-    use crate::vk::validation_layer::{self, ValidationLayer};
 
     use super::*;
     #[test]
@@ -249,6 +248,7 @@ mod test {
 
     #[test]
     fn khronos_validation() {
+        use crate::vk::validation_layer::{self, *};
         const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
         let available_layers = validation_layer::enumerate();
 
@@ -260,6 +260,59 @@ mod test {
 
         let info = InstanceCreateInfo::builder()
             .api_version(vk::API_VERSION_1_0)
+            .validation_layers(layers)
+            .build()
+            .unwrap();
+        let _ = Instance::create_vk_instance(info);
+    }
+
+    #[test]
+    fn khr_surface() {
+        use crate::vk::extension::{self, *};
+        const REQUIRED_EXTENSIONS: [Extension; 1] = [Extension::KhrSurface];
+        let available_extensions = extension::enumerate();
+
+        let extensions = AvailableExtensions::from_available_and_required(
+            &available_extensions,
+            &REQUIRED_EXTENSIONS,
+        )
+        .expect("Failed to find KhrSurface extension");
+
+        let info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .extensions(extensions)
+            .build()
+            .unwrap();
+        let _ = Instance::create_vk_instance(info);
+    }
+
+    #[test]
+    fn extension_and_layer() {
+
+        use crate::vk::validation_layer::{self, *};
+        const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
+        let available_layers = validation_layer::enumerate();
+
+        let layers = AvailableValidationLayers::from_available_and_required(
+            &available_layers,
+            &REQUIRED_LAYERS,
+        )
+        .expect("Failed to find KhronosValidation layer");
+
+
+        use crate::vk::extension::{self, *};
+        const REQUIRED_EXTENSIONS: [Extension; 1] = [Extension::KhrSurface];
+        let available_extensions = extension::enumerate();
+
+        let extensions = AvailableExtensions::from_available_and_required(
+            &available_extensions,
+            &REQUIRED_EXTENSIONS,
+        )
+        .expect("Failed to find KhrSurface extension");
+
+        let info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .extensions(extensions)
             .validation_layers(layers)
             .build()
             .unwrap();

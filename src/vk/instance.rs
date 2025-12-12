@@ -41,6 +41,7 @@ const MAX_INSTANCES: usize = 1;
 static RAW_INSTANCES: UnsafeArcArray<MAX_INSTANCES, RawInstance> = UnsafeArcArray::new();
 
 /// A handle to a RawInstance
+#[derive(Debug)]
 pub struct Instance {
     id: usize,
 }

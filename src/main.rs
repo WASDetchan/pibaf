@@ -1,8 +1,6 @@
 use ash::vk;
 use pibaf::vk::{
-    extension::{self, AvailableExtensions, Extension},
-    instance::{Instance, InstanceCreateInfo},
-    validation_layer::{self, *},
+    extension::{self, AvailableExtensions, Extension}, instance::{Instance, InstanceCreateInfo}, physical_device, validation_layer::{self, *}
 };
 
 fn main() {
@@ -11,9 +9,6 @@ fn main() {
     const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
     let available_layers = validation_layer::enumerate();
     let available_extension = extension::enumerate();
-
-    dbg!(&available_layers, available_layers.len());
-    dbg!(&available_extension, available_extension.len());
 
     let layers =
         AvailableValidationLayers::from_available_and_required(&available_layers, &REQUIRED_LAYERS)
@@ -32,5 +27,8 @@ fn main() {
         .extensions(extensions)
         .build()
         .unwrap();
-    let _ = Instance::create_vk_instance(info);
+    let instance = Instance::create_vk_instance(info);
+
+    let physical_devices = physical_device::enumerate(&instance);
+    _ = physical_devices;
 }

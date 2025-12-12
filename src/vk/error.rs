@@ -1,5 +1,7 @@
 use ash::vk;
 
+/// Enumeration of all possible VkResult codes
+#[cfg_attr(test, derive(strum::EnumIter))] // for testing all enum variants
 #[derive(PartialEq, Debug, strum::FromRepr, strum::Display)]
 #[repr(i32)]
 pub enum VulkanResult {
@@ -115,6 +117,8 @@ pub fn expect_vk_success<T>(msg: &str, res: Result<T, vk::Result>) -> T {
 
 #[cfg(test)]
 mod test {
+    use strum::IntoEnumIterator;
+
     use super::*;
 
     #[test]
@@ -139,6 +143,11 @@ mod test {
             doc,
             "An unknown error has occurred, due to an implementation or application bug"
         )
+    }
+
+    #[test]
+    fn doc_all() {
+        let _ : Vec<_> = VulkanResult::iter().map(|res| res.doc()).collect();
     }
 
     #[test]
@@ -167,4 +176,5 @@ mod test {
         let result = Ok(11);
         assert_eq!(expect_vk_success("ohno", result), 11);
     }
+
 }

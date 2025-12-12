@@ -36,8 +36,11 @@ impl RawInstance {
         &self.0
     }
 }
-
-const MAX_INSTANCES: usize = 1;
+#[cfg(not(test))]
+const MAX_INSTANCES: usize = 1; // One instance is usually enough
+#[cfg(test)]
+const MAX_INSTANCES: usize = 10; // Tests can run simultaniously and can store more that 1 instance
+// ath a time
 static RAW_INSTANCES: UnsafeArcArray<MAX_INSTANCES, RawInstance> = UnsafeArcArray::new();
 
 /// A handle to a RawInstance
@@ -262,6 +265,14 @@ mod test {
         let _ = Instance::create_vk_instance(info);
     }
 
+
+    #[test]
+    fn enumerate_portability() {
+        let info = InstanceCreateInfo::builder().api_version(vk::API_VERSION_1_0).enumerate_portability(true).build().unwrap();
+
+        let _ = Instance::create_vk_instance(info);
+    }
+
     #[test]
     fn khr_surface() {
         use crate::vk::extension::{self, *};
@@ -312,4 +323,5 @@ mod test {
             .unwrap();
         let _ = Instance::create_vk_instance(info);
     }
+
 }

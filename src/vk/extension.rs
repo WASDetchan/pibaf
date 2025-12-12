@@ -46,8 +46,8 @@ pub struct AvailableExtension {
 
 impl AvailableExtension {
     /// Returns the extension variant
-    pub fn extension(&self) -> &Extension {
-        &self.extension
+    pub fn extension(&self) -> Extension {
+        self.extension
     }
 
     /// Extension name
@@ -158,11 +158,24 @@ mod test {
         let res = AvailableExtensions::from_available_and_required(&available, &required).unwrap();
 
         assert_eq!(res.extensions().len(), 1);
-        assert_eq!(res.extensions()[0].extension(), &Extension::KhrSurface);
+        assert_eq!(res.extensions()[0].extension(), Extension::KhrSurface);
+        assert_ne!(res.extensions()[0].spec_version(), 0); 
     }
 
     #[test]
-    fn does_not_have_unknown() {
+    fn manual_add() {
+        let available = enumerate();
+
+        let khr = available.into_iter().find(|e| e.extension() == Extension::KhrSurface).expect("KhrSurface extension not found");
+
+        let mut res = AvailableExtensions::default();
+        res.add(khr);
+
+        assert_eq!(res.names(), &[c"VK_KHR_surface"]);
+    }
+
+    #[test]
+    fn does_not_have_unreachable() {
         let available = enumerate();
         let required = [Extension::UnreachableExtension];
 

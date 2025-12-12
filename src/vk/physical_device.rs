@@ -67,5 +67,11 @@ mod test {
         let devices = enumerate(&instance);
 
         assert!(!devices.is_empty());
+
+        // Output of following functions cannot be verified, but it must be ensured that they do
+        // not panic or fault
+        let _ = devices[0].raw_device();
+        let _ = devices[0].raw_properties();
+        let _ = devices[0].raw_features();
     }
 }

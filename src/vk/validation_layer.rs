@@ -48,8 +48,8 @@ pub struct AvailableValidationLayer {
 
 impl AvailableValidationLayer {
     /// Returns the layer variant
-    pub fn layer(&self) -> &ValidationLayer {
-        &self.layer
+    pub fn layer(&self) -> ValidationLayer {
+        self.layer
     }
 
     /// Layer's name
@@ -174,12 +174,28 @@ mod test {
         let res =
             AvailableValidationLayers::from_available_and_required(&available, &required).unwrap();
 
-        assert_eq!(res.layers.len(), 1);
-        assert_eq!(res.layers[0].layer(), &ValidationLayer::KhronosValidation);
+        assert_eq!(res.layers().len(), 1);
+        let layer = &res.layers()[0];
+        assert_eq!(layer.layer(), ValidationLayer::KhronosValidation);
+        assert_ne!(layer.spec_version(), 0);
+        assert_ne!(layer.implementation_version(), 0);
+        assert_ne!(layer.description(), c"");
     }
 
     #[test]
-    fn does_not_have_unknown() {
+    fn manual_add() {
+        let available = enumerate();
+
+        let khr = available.into_iter().find(|l| l.layer() == ValidationLayer::KhronosValidation).expect("KhronosValidation layer not found");
+
+        let mut res = AvailableValidationLayers::default();
+        res.add(khr);
+
+        assert_eq!(res.names(), &[c"VK_LAYER_KHRONOS_validation"]);
+    }
+
+    #[test]
+    fn does_not_have_unreachable() {
         let available = enumerate();
         let required = [ValidationLayer::UnreachableLayer];
 

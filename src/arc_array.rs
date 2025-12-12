@@ -80,17 +80,22 @@ impl<const N: usize, T> Default for UnsafeArcArray<N, T> {
 mod test {
     struct DropSet {
         v: i64,
-        cell: Rc<OnceCell<i64>>,
+        cell: Rc<Cell<i64>>,
+    }
+    impl DropSet {
+        fn set(&self, v: i64) {
+            self.cell.set(v);
+        }
     }
     impl Drop for DropSet {
         fn drop(&mut self) {
-            self.cell.set(self.v).unwrap()
+            self.cell.set(self.v)
         }
     }
 
     impl DropSet {
-        fn new(v: i64) -> (Self, Rc<OnceCell<i64>>) {
-            let cell = Rc::new(OnceCell::new());
+        fn new(v: i64) -> (Self, Rc<Cell<i64>>) {
+            let cell = Rc::new(Cell::new(0));
             (
                 Self {
                     v,
@@ -100,19 +105,35 @@ mod test {
             )
         }
     }
-    use std::{cell::OnceCell, rc::Rc};
+    use std::{cell::Cell, rc::Rc};
 
     use super::*;
     #[test]
     fn basic() {
-        let arr = UnsafeArcArray::<11, DropSet>::new();
+        let arr = UnsafeArcArray::<11, DropSet>::default();
         let (ds, cell) = DropSet::new(11);
         let idx = arr.acquire_and_init(|| ds).unwrap();
-        assert!(cell.get().is_none());
+        assert_eq!(cell.get(), 0);
+        unsafe {arr.get_ref(idx).set(6)};
+        assert_eq!(cell.get(), 6);
         unsafe {
             arr.dec_count(idx);
         }
-        assert!(cell.get().is_some_and(|v| *v == 11));
+        assert_eq!(cell.get(), 11);
+    }
+
+    #[test]
+    fn fill_capacity() {
+        let arr = UnsafeArcArray::<3, i64>::default();
+        let idx1 = arr.acquire_and_init(|| 1);
+        let idx2 = arr.acquire_and_init(|| 2);
+        let idx3 = arr.acquire_and_init(|| 3);
+        let idx4 = arr.acquire_and_init(|| 4);
+
+        assert!(idx1.is_some());
+        assert!(idx2.is_some());
+        assert!(idx3.is_some());
+        assert!(idx4.is_none());
     }
 
     // TODO: test better: multiple items, parallel access

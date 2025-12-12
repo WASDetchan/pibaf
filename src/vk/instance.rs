@@ -85,7 +85,7 @@ impl Instance {
     /// # Panics
     /// Panics if vulkan is not supported
     pub fn create_vk_instance(info: InstanceCreateInfo) -> Self {
-        log::trace!("Creating Instance: {info:#?}" );
+        log::trace!("Creating Instance: {info:#?}");
         let create_info = info.create_raw();
 
         // Safety: InstanceCreateInfo guarantees that it gives valid create_info
@@ -130,8 +130,8 @@ impl RawInstanceCreateInfo<'_> {
 /// Owned data for vk::InstanceCreateInfo
 #[derive(Debug)]
 pub struct InstanceCreateInfo {
-    enabled_validation_layers: Vec<&'static CStr>,
-    enabled_extensions: Vec<&'static CStr>,
+    enabled_validation_layers: AvailableValidationLayers,
+    enabled_extensions: AvailableExtensions,
 
     flags: vk::InstanceCreateFlags,
 
@@ -170,15 +170,8 @@ impl InstanceCreateInfo {
             CString::from(c"")
         };
 
-        let enabled_validation_layers = if let Some(layers) = validation_layers {
-            layers.names()
-        } else {
-            Vec::new()
-        };
-
-        let enabled_extensions = extensions
-            .as_ref()
-            .map_or_else(Vec::new, AvailableExtensions::names);
+        let enabled_validation_layers = validation_layers.unwrap_or_default();
+        let enabled_extensions = extensions.unwrap_or_default();
 
         let mut flags = vk::InstanceCreateFlags::empty();
         if enumerate_portability.is_some_and(|c| c) {
@@ -204,12 +197,14 @@ impl InstanceCreateInfo {
     pub fn create_raw(&self) -> RawInstanceCreateInfo<'_> {
         let extension_name_ptrs = self
             .enabled_extensions
+            .names()
             .iter()
             .map(|&s: &&CStr| s.as_ptr())
             .collect::<Vec<_>>();
 
         let validation_layer_name_ptrs = self
             .enabled_validation_layers
+            .names()
             .iter()
             .map(|&s: &&CStr| s.as_ptr())
             .collect::<Vec<_>>();
@@ -288,7 +283,6 @@ mod test {
 
     #[test]
     fn extension_and_layer() {
-
         use crate::vk::validation_layer::{self, *};
         const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
         let available_layers = validation_layer::enumerate();
@@ -298,7 +292,6 @@ mod test {
             &REQUIRED_LAYERS,
         )
         .expect("Failed to find KhronosValidation layer");
-
 
         use crate::vk::extension::{self, *};
         const REQUIRED_EXTENSIONS: [Extension; 1] = [Extension::KhrSurface];

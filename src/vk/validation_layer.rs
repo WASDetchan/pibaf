@@ -1,12 +1,14 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
-use ash::vk;
 use strum::{EnumCount, IntoEnumIterator};
 
 use super::{entry, error::expect_vk_success};
 
-const VALIDATION_LAYER_NAMES: [&CStr; ValidationLayer::COUNT] =
-    [c"VK_LAYER_KHRONOS_validation", c"__UNKNOW_LAYER", c"__UNREACHABLE_LAYER"];
+const VALIDATION_LAYER_NAMES: [&CStr; ValidationLayer::COUNT] = [
+    c"VK_LAYER_KHRONOS_validation",
+    c"__UNKNOW_LAYER",
+    c"__UNREACHABLE_LAYER",
+];
 
 /// Enumeration of all supported validation layers, plus UnknownLayer and UnreachableLayer
 #[derive(Clone, Copy, strum::EnumCount, strum::EnumIter, PartialEq, Eq, Debug)]
@@ -27,7 +29,9 @@ impl ValidationLayer {
 
     /// Return the first enum variant with name mathing the given string. Returns ValidationLayer::UnknownLayer if the name doesn't match any variant
     pub fn identify_name(name: &CStr) -> Self {
-        Self::iter().find(|layer| layer.name() == name).unwrap_or(ValidationLayer::UnknownLayer)
+        Self::iter()
+            .find(|layer| layer.name() == name)
+            .unwrap_or(ValidationLayer::UnknownLayer)
     }
 }
 
@@ -36,7 +40,10 @@ impl ValidationLayer {
 #[derive(Clone, Debug)]
 pub struct AvailableValidationLayer {
     layer: ValidationLayer,
-    properties: vk::LayerProperties,
+    spec_version: u32,
+    implementation_version: u32,
+    name: CString,
+    description: CString,
 }
 
 impl AvailableValidationLayer {
@@ -45,9 +52,22 @@ impl AvailableValidationLayer {
         &self.layer
     }
 
-    /// Returns the layer's properties
-    pub fn raw_properties(&self) -> &vk::LayerProperties {
-        &self.properties
+    /// Layer's name
+    pub fn name(&self) -> &CStr {
+        &self.name
+    }
+    /// Layer's description
+    pub fn description(&self) -> &CStr {
+        &self.description
+    }
+    /// Layer's spec version
+    pub fn spec_version(&self) -> u32 {
+        self.spec_version
+    }
+
+    /// Layer's implementation version
+    pub fn implementation_version(&self) -> u32 {
+        self.implementation_version
     }
 }
 /// Enumerates available instance validation layers. Ignores unkwown names.
@@ -62,11 +82,19 @@ pub fn enumerate() -> Vec<AvailableValidationLayer> {
         .flat_map(|prop| {
             let name = prop
                 .layer_name_as_c_str()
-                .expect("Got invalid layer name from enumeration");
-            let layer = ValidationLayer::identify_name(name);
+                .expect("Got invalid layer name from enumeration")
+                .to_owned();
+            let description = prop
+                .description_as_c_str()
+                .expect("Got invalid layer description from enumeration")
+                .to_owned();
+            let layer = ValidationLayer::identify_name(&name);
             Some(AvailableValidationLayer {
                 layer,
-                properties: prop,
+                name,
+                description,
+                spec_version: prop.spec_version,
+                implementation_version: prop.implementation_version,
             })
         })
         .collect();
@@ -76,25 +104,25 @@ pub fn enumerate() -> Vec<AvailableValidationLayer> {
 
 /// List of some of the available validation layers. Guarantees avalilability. Used to safely
 /// enable those layers without additional checks
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AvailableValidationLayers {
-    layers: Vec<ValidationLayer>,
+    layers: Vec<AvailableValidationLayer>,
 }
 
 impl AvailableValidationLayers {
     /// Returns Vec of contained layers' names
-    pub fn names(&self) -> Vec<&'static CStr> {
+    pub fn names(&self) -> Vec<&CStr> {
         self.layers.iter().map(|layer| layer.name()).collect()
     }
 
     /// Slice of avalilable validation layers
-    pub fn layers(&self) -> &[ValidationLayer] {
+    pub fn layers(&self) -> &[AvailableValidationLayer] {
         &self.layers
     }
 
     /// Adds a layer to the available layer list
     pub fn add(&mut self, layer: AvailableValidationLayer) {
-        self.layers.push(layer.layer);
+        self.layers.push(layer);
     }
 
     /// If avalilable contains each element from required, returns Self containing all required
@@ -103,13 +131,16 @@ impl AvailableValidationLayers {
         available: &[AvailableValidationLayer],
         required: &[ValidationLayer],
     ) -> Option<Self> {
-        let mut has_requirements = true;
-        required
-            .iter()
-            .for_each(|req| has_requirements &= available.iter().any(|avail| avail.layer == *req));
+        let mut available_layers = Vec::with_capacity(required.len());
+        for req in required {
+            let available = available.iter().find(|avail| avail.layer == *req)?;
+            available_layers.push(available);
+        }
 
-        has_requirements.then(|| Self {
-            layers: required.to_vec(),
+        let available_layers = available_layers.into_iter().cloned().collect();
+
+        Some(Self {
+            layers: available_layers,
         })
     }
 }
@@ -143,7 +174,8 @@ mod test {
         let res =
             AvailableValidationLayers::from_available_and_required(&available, &required).unwrap();
 
-        assert_eq!(res.layers, &required);
+        assert_eq!(res.layers.len(), 1);
+        assert_eq!(res.layers[0].layer(), &ValidationLayer::KhronosValidation);
     }
 
     #[test]

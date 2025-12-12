@@ -1,12 +1,14 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
-use ash::vk;
 use strum::{EnumCount, IntoEnumIterator};
 
 use super::{entry, error::expect_vk_success};
 
-const EXTENSION_NAMES: [&CStr; Extension::COUNT] =
-    [c"VK_KHR_surface", c"__UNKNOWN_EXTENSION", c"__UNREACHABLE_EXTENSION"];
+const EXTENSION_NAMES: [&CStr; Extension::COUNT] = [
+    c"VK_KHR_surface",
+    c"__UNKNOWN_EXTENSION",
+    c"__UNREACHABLE_EXTENSION",
+];
 
 /// Enumeration of all supported extensions, plus UnknownExtension and UnreachableExtension
 #[derive(Clone, Copy, strum::EnumCount, strum::EnumIter, PartialEq, Eq, Debug)]
@@ -27,7 +29,9 @@ impl Extension {
 
     /// Return the first enum variant with name mathing the given string. Returns UnknownExtension if the name doesn't match any variant
     pub fn identify_name(name: &CStr) -> Self {
-        Self::iter().find(|extension| extension.name() == name).unwrap_or(Self::UnknownExtension)
+        Self::iter()
+            .find(|extension| extension.name() == name)
+            .unwrap_or(Self::UnknownExtension)
     }
 }
 
@@ -36,7 +40,8 @@ impl Extension {
 #[derive(Clone, Debug)]
 pub struct AvailableExtension {
     extension: Extension,
-    properties: vk::ExtensionProperties,
+    name: CString,
+    spec_version: u32,
 }
 
 impl AvailableExtension {
@@ -45,9 +50,13 @@ impl AvailableExtension {
         &self.extension
     }
 
-    /// Returns the extension's properties
-    pub fn raw_properties(&self) -> &vk::ExtensionProperties {
-        &self.properties
+    /// Extension name
+    pub fn name(&self) -> &CStr {
+        &self.name
+    }
+    /// Extension spec version
+    pub fn spec_version(&self) -> u32 {
+        self.spec_version
     }
 }
 /// Enumerates available instance extensions. Ignores unkwown names.
@@ -62,11 +71,13 @@ pub fn enumerate() -> Vec<AvailableExtension> {
         .flat_map(|prop| {
             let name = prop
                 .extension_name_as_c_str()
-                .expect("Got invalid extension name from enumeration");
-            let extension = Extension::identify_name(name);
+                .expect("Got invalid extension name from enumeration")
+                .to_owned();
+            let extension = Extension::identify_name(&name);
             Some(AvailableExtension {
                 extension,
-                properties: prop,
+                name,
+                spec_version: prop.spec_version,
             })
         })
         .collect();
@@ -76,25 +87,28 @@ pub fn enumerate() -> Vec<AvailableExtension> {
 
 /// List of some of the available extensions. Guarantees avalilability. Used to safely
 /// enable those extensions withoutadditional checks
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AvailableExtensions {
-    extensions: Vec<Extension>,
+    extensions: Vec<AvailableExtension>,
 }
 
 impl AvailableExtensions {
     /// Returns Vec of contained extensions' names
-    pub fn names(&self) -> Vec<&'static CStr> {
-        self.extensions.iter().map(|extension| extension.name()).collect()
+    pub fn names(&self) -> Vec<&CStr> {
+        self.extensions
+            .iter()
+            .map(|extension| extension.name())
+            .collect()
     }
 
     /// Slice of avalilable extensions
-    pub fn extensions(&self) -> &[Extension] {
+    pub fn extensions(&self) -> &[AvailableExtension] {
         &self.extensions
     }
 
     /// Adds a extension to the available extension list
     pub fn add(&mut self, extension: AvailableExtension) {
-        self.extensions.push(extension.extension);
+        self.extensions.push(extension);
     }
 
     /// If avalilable contains each element from required, returns Self containing all required
@@ -103,13 +117,14 @@ impl AvailableExtensions {
         available: &[AvailableExtension],
         required: &[Extension],
     ) -> Option<Self> {
-        let mut has_requirements = true;
-        required
-            .iter()
-            .for_each(|req| has_requirements &= available.iter().any(|avail| avail.extension == *req));
+        let mut selected_extensions = Vec::with_capacity(required.len());
+        for req in required {
+            let ext = available.iter().find(|avail| avail.extension == *req)?;
+            selected_extensions.push(ext);
+        }
 
-        has_requirements.then(|| Self {
-            extensions: required.to_vec(),
+        Some(Self {
+            extensions: selected_extensions.into_iter().cloned().collect(),
         })
     }
 }
@@ -140,10 +155,10 @@ mod test {
         let available = enumerate();
         let required = [Extension::KhrSurface];
 
-        let res =
-            AvailableExtensions::from_available_and_required(&available, &required).unwrap();
+        let res = AvailableExtensions::from_available_and_required(&available, &required).unwrap();
 
-        assert_eq!(res.extensions, &required);
+        assert_eq!(res.extensions().len(), 1);
+        assert_eq!(res.extensions()[0].extension(), &Extension::KhrSurface);
     }
 
     #[test]
@@ -161,8 +176,7 @@ mod test {
         let available = enumerate();
         let required = [Extension::KhrSurface];
 
-        let res =
-            AvailableExtensions::from_available_and_required(&available, &required).unwrap();
+        let res = AvailableExtensions::from_available_and_required(&available, &required).unwrap();
 
         assert_eq!(&res.names(), &[c"VK_KHR_surface"]);
     }

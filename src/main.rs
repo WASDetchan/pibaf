@@ -9,7 +9,8 @@ use pibaf::vk::{
 fn main() {
     env_logger::init();
 
-    const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
+    // const REQUIRED_LAYERS: [ValidationLayer; 1] = [ValidationLayer::KhronosValidation];
+    const REQUIRED_LAYERS: [ValidationLayer; 0] = [];
     let available_layers = validation_layer::enumerate();
     let available_extension = extension::enumerate();
 

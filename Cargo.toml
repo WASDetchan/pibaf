@@ -1,6 +1,6 @@
 [package]
 name = "pibaf"
-version = "0.1.4-b"
+version = "0.1.4-c"
 edition = "2024"
 description = "Safe idiomatic vulkan wrapper"
 license = "MIT"

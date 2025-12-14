@@ -159,14 +159,17 @@ mod test {
 
         assert_eq!(res.extensions().len(), 1);
         assert_eq!(res.extensions()[0].extension(), Extension::KhrSurface);
-        assert_ne!(res.extensions()[0].spec_version(), 0); 
+        assert_ne!(res.extensions()[0].spec_version(), 0);
     }
 
     #[test]
     fn manual_add() {
         let available = enumerate();
 
-        let khr = available.into_iter().find(|e| e.extension() == Extension::KhrSurface).expect("KhrSurface extension not found");
+        let khr = available
+            .into_iter()
+            .find(|e| e.extension() == Extension::KhrSurface)
+            .expect("KhrSurface extension not found");
 
         let mut res = AvailableExtensions::default();
         res.add(khr);

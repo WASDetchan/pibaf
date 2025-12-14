@@ -2,16 +2,56 @@
 //! Utilities for safe vulkan physical device information querying
 //!
 
+use std::fmt::Debug;
+
 use ash::vk;
 
-use crate::vk::{ Instance, error::expect_vk_success};
+use crate::vk::{Instance, error::expect_vk_success};
+
+/// Properties of an available queue family. Guarantees that the queue family is available on the
+/// stored device
+#[derive(Debug)]
+pub struct AvailableQueueFamily {
+    device: vk::PhysicalDevice,
+    idx: usize,
+    flags: vk::QueueFlags,
+    queue_count: u32,
+    // TODO: add the rest of the properties
+}
+
+impl AvailableQueueFamily {
+    /// Checks if the queue family has the graphics bit
+    pub fn has_graphics(&self) -> bool {
+        self.flags.contains(vk::QueueFlags::GRAPHICS)
+    }
+
+    /// Checks if the queue family belongs to the given physical device
+    pub fn belongs_to_device(&self, device: &PhysicalDevice) -> bool {
+        device.device == self.device
+    }
+
+    /// Queue count of the queue family
+    pub fn queue_count(&self) -> u32 {
+        self.queue_count
+    }
+
+    /// Get the index of the queue family
+    pub fn get_idx(&self) -> usize {
+        self.idx
+    }
+}
 
 /// A handle to a vk::PhysicalDevice. Can only be acquired from enumerating physical devices,
 /// guaranteeing that the device is available
-#[derive(Debug)]
 pub struct PhysicalDevice {
     instance: Instance,
     device: vk::PhysicalDevice,
+}
+
+impl Debug for PhysicalDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PhysicalDevice {:?} of {:?}", self.device, self.instance)
+    }
 }
 
 impl PhysicalDevice {
@@ -24,7 +64,9 @@ impl PhysicalDevice {
     pub fn raw_properties(&self) -> vk::PhysicalDeviceProperties {
         // Safety: instance is not destroyed, a valid PhysicalDevice is passed
         unsafe {
-            self.instance.get_raw_ref().get_physical_device_properties(self.device)
+            self.instance
+                .get_raw_ref()
+                .get_physical_device_properties(self.device)
         }
     }
 
@@ -32,8 +74,34 @@ impl PhysicalDevice {
     pub fn raw_features(&self) -> vk::PhysicalDeviceFeatures {
         // Safety: instance is not destroyed, a valid PhysicalDevice is passed
         unsafe {
-            self.instance.get_raw_ref().get_physical_device_features(self.device)
+            self.instance
+                .get_raw_ref()
+                .get_physical_device_features(self.device)
         }
+    }
+
+    /// Query QueueFamilyProperties
+    pub fn raw_queue_family_properties(&self) -> Vec<vk::QueueFamilyProperties> {
+        // Safety: instance is not destroyed, a valid PhysicalDevice is passed
+        unsafe {
+            self.instance
+                .get_raw_ref()
+                .get_physical_device_queue_family_properties(self.device)
+        }
+    }
+
+    /// Get a vec of avalilable queue families.
+    pub fn get_available_queue_families(&self) -> Vec<AvailableQueueFamily> {
+        self.raw_queue_family_properties()
+            .into_iter()
+            .enumerate()
+            .map(|(idx, prop)| AvailableQueueFamily {
+                device: self.device,
+                idx,
+                flags: prop.queue_flags,
+                queue_count: prop.queue_count,
+            })
+            .collect()
     }
 }
 /// Enumerate avalilable vulkan physical devices
@@ -43,14 +111,15 @@ pub fn enumerate(instance: &Instance) -> Vec<PhysicalDevice> {
         instance.get_raw_ref().enumerate_physical_devices()
     });
 
-
     let devices = devices
         .into_iter()
-        .map(|dev| PhysicalDevice { device: dev, instance: instance.clone() })
+        .map(|dev| PhysicalDevice {
+            device: dev,
+            instance: instance.clone(),
+        })
         .collect();
-        log::trace!("Enumerated physical devices, avalilable devices: {devices:#?}");
+    log::trace!("Enumerated physical devices, avalilable devices: {devices:#?}");
     devices
-
 }
 
 #[cfg(test)]
@@ -60,9 +129,12 @@ mod test {
 
     #[test]
     fn device_is_found() {
-        let instance_info = InstanceCreateInfo::builder().api_version(vk::API_VERSION_1_0).build().unwrap();
+        let instance_info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .build()
+            .unwrap();
 
-        let instance = Instance::create_vk_instance (instance_info);
+        let instance = Instance::create_vk_instance(instance_info);
 
         let devices = enumerate(&instance);
 
@@ -73,5 +145,48 @@ mod test {
         let _ = devices[0].raw_device();
         let _ = devices[0].raw_properties();
         let _ = devices[0].raw_features();
+    }
+
+    #[test]
+    fn debug_fmt() {
+        let instance_info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .build()
+            .unwrap();
+
+        let instance = Instance::create_vk_instance(instance_info);
+
+        let devices = enumerate(&instance);
+
+        assert!(!devices.is_empty());
+
+        assert!(format!("{:?}", devices[0]).contains("PhysicalDevice"));
+    }
+
+    #[test]
+    fn has_graphics_queue() {
+        let instance_info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .build()
+            .unwrap();
+
+        let instance = Instance::create_vk_instance(instance_info);
+
+        let devices = enumerate(&instance);
+
+        assert!(!devices.is_empty());
+
+        let graphic_families = devices[0]
+            .get_available_queue_families()
+            .into_iter()
+            .enumerate()
+            .filter(|(_idx, qf)| qf.has_graphics())
+            .collect::<Vec<_>>();
+
+        assert!(graphic_families.len() > 0);
+        assert!(graphic_families[0].1.has_graphics());
+        assert!(graphic_families[0].1.queue_count() > 0);
+        assert!(graphic_families[0].1.belongs_to_device(&devices[0]));
+        assert_eq!(graphic_families[0].1.get_idx(), graphic_families[0].0);
     }
 }

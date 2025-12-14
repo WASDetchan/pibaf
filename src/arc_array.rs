@@ -114,7 +114,7 @@ mod test {
         let (ds, cell) = DropSet::new(11);
         let idx = arr.acquire_and_init(|| ds).unwrap();
         assert_eq!(cell.get(), 0);
-        unsafe {arr.get_ref(idx).set(6)};
+        unsafe { arr.get_ref(idx).set(6) };
         assert_eq!(cell.get(), 6);
         unsafe {
             arr.dec_count(idx);

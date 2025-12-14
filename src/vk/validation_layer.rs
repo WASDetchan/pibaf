@@ -186,7 +186,10 @@ mod test {
     fn manual_add() {
         let available = enumerate();
 
-        let khr = available.into_iter().find(|l| l.layer() == ValidationLayer::KhronosValidation).expect("KhronosValidation layer not found");
+        let khr = available
+            .into_iter()
+            .find(|l| l.layer() == ValidationLayer::KhronosValidation)
+            .expect("KhronosValidation layer not found");
 
         let mut res = AvailableValidationLayers::default();
         res.add(khr);

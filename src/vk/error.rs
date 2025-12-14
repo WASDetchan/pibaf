@@ -147,7 +147,7 @@ mod test {
 
     #[test]
     fn doc_all() {
-        let _ : Vec<_> = VulkanResult::iter().map(|res| res.doc()).collect();
+        let _: Vec<_> = VulkanResult::iter().map(|res| res.doc()).collect();
     }
 
     #[test]
@@ -176,5 +176,4 @@ mod test {
         let result = Ok(11);
         assert_eq!(expect_vk_success("ohno", result), 11);
     }
-
 }

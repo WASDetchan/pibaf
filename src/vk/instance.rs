@@ -265,10 +265,13 @@ mod test {
         let _ = Instance::create_vk_instance(info);
     }
 
-
     #[test]
     fn enumerate_portability() {
-        let info = InstanceCreateInfo::builder().api_version(vk::API_VERSION_1_0).enumerate_portability(true).build().unwrap();
+        let info = InstanceCreateInfo::builder()
+            .api_version(vk::API_VERSION_1_0)
+            .enumerate_portability(true)
+            .build()
+            .unwrap();
 
         let _ = Instance::create_vk_instance(info);
     }
@@ -323,5 +326,4 @@ mod test {
             .unwrap();
         let _ = Instance::create_vk_instance(info);
     }
-
 }

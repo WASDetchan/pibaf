@@ -1,6 +1,9 @@
 use ash::vk;
 use pibaf::vk::{
-    extension::{self, AvailableExtensions, Extension}, instance::{Instance, InstanceCreateInfo}, physical_device, validation_layer::{self, *}
+    extension::{self, AvailableExtensions, Extension},
+    instance::{Instance, InstanceCreateInfo},
+    physical_device,
+    validation_layer::{self, *},
 };
 
 fn main() {
@@ -29,6 +32,19 @@ fn main() {
         .unwrap();
     let instance = Instance::create_vk_instance(info);
 
-    let physical_devices = physical_device::enumerate(&instance);
-    _ = physical_devices;
+    let devices = physical_device::enumerate(&instance);
+    let graphic_families = devices[0]
+        .get_available_queue_families()
+        .into_iter()
+        .enumerate()
+        .filter(|(_idx, qf)| qf.has_graphics())
+        .collect::<Vec<_>>();
+
+    log::info!("{:?}", graphic_families);
+
+    assert!(graphic_families.len() > 0);
+    assert!(graphic_families[0].1.has_graphics());
+    assert!(graphic_families[0].1.queue_count() > 0);
+    assert!(graphic_families[0].1.belongs_to_device(&devices[0]));
+    assert_eq!(graphic_families[0].1.get_idx(), graphic_families[0].0);
 }

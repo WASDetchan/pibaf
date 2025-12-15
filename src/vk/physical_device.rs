@@ -11,34 +11,30 @@ use crate::vk::{Instance, error::expect_vk_success};
 /// Properties of an available queue family. Guarantees that the queue family is available on the
 /// stored device
 #[derive(Debug)]
-pub struct AvailableQueueFamily {
+pub struct AvailableQueue {
     device: vk::PhysicalDevice,
     idx: usize,
     flags: vk::QueueFlags,
-    queue_count: u32,
     // TODO: add the rest of the properties
 }
 
-impl AvailableQueueFamily {
-    /// Checks if the queue family has the graphics bit
+impl AvailableQueue {
+    /// Checks if the queue has the graphics bit
     pub fn has_graphics(&self) -> bool {
         self.flags.contains(vk::QueueFlags::GRAPHICS)
     }
 
-    /// Checks if the queue family belongs to the given physical device
+    /// Checks if the queue belongs to the given physical device
     pub fn belongs_to_device(&self, device: &PhysicalDevice) -> bool {
         device.device == self.device
     }
 
-    /// Queue count of the queue family
-    pub fn queue_count(&self) -> u32 {
-        self.queue_count
-    }
-
     /// Get the index of the queue family
-    pub fn get_idx(&self) -> usize {
+    pub fn get_family_idx(&self) -> usize {
         self.idx
     }
+
+    fn from_family_prop(prop: vk::QueueFamilyProperties) -> Self {}
 }
 
 /// A handle to a vk::PhysicalDevice. Can only be acquired from enumerating physical devices,
@@ -91,11 +87,11 @@ impl PhysicalDevice {
     }
 
     /// Get a vec of avalilable queue families.
-    pub fn get_available_queue_families(&self) -> Vec<AvailableQueueFamily> {
+    pub fn get_available_queues(&self) -> Vec<AvailableQueue> {
         self.raw_queue_family_properties()
             .into_iter()
             .enumerate()
-            .map(|(idx, prop)| AvailableQueueFamily {
+            .flat_map(|(idx, prop)| AvailableQueueFamily {
                 device: self.device,
                 idx,
                 flags: prop.queue_flags,
